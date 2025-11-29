@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  tfserving:
+    image: tensorflow/serving:2.15.0
+    container_name: tfserving
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./models/saved_model:/models/credit_model
+    environment:
+      - MODEL_NAME=credit_model
+
+  api:
+    build: ./infra/api
+    container_name: credit_api
+    ports:
+      - "8000:8000"
+    environment:
+      - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
+      - DB_URL=postgresql+psycopg2://credit_user:credit_pass@postgres:5432/credit
+      - ENV=prod
+    depends_on:
+      - tfserving
+      - postgres
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=credit
+      - POSTGRES_USER=credit_user
+      - POSTGRES_PASSWORD=credit_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:8.10
+    container_name: pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=adminpass
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
