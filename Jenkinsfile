@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        DB_URL = credentials('db-credentials-id')   // Securely stored in Jenkins
+        // Securely inject DB credentials from Jenkins Credentials plugin
+        DB_URL = credentials('db-credentials-id')
         TF_SERVING_URL = "http://tfserving:8501/v1/models/credit_model:predict"
     }
 
@@ -68,8 +69,10 @@ pipeline {
 
     post {
         always {
-            echo "🧹 Cleaning up containers..."
-            sh 'docker compose down'
+            script {
+                echo "🧹 Cleaning up containers..."
+                sh 'docker compose down || true'
+            }
         }
     }
 }
