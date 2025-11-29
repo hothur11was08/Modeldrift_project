@@ -18,14 +18,14 @@ pipeline {
         stage('Build API Image') {
             steps {
                 echo "🔨 Building Docker image for API..."
-                sh 'docker compose build api'
+                sh '/usr/local/bin/docker compose build api'
             }
         }
 
         stage('Deploy Stack') {
             steps {
                 echo "🚀 Starting containers (API, Postgres, TF Serving)..."
-                sh 'docker compose up -d'
+                sh '/usr/local/bin/docker compose up -d'
             }
         }
 
@@ -71,7 +71,7 @@ pipeline {
         always {
             script {
                 echo "🧹 Cleaning up containers..."
-                sh 'docker compose down || true'
+                sh '/usr/local/bin/docker compose down || true'
             }
         }
     }
