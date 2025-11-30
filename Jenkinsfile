@@ -77,11 +77,9 @@ pipeline {
 
     post {
         always {
-            node {
-                echo 'Cleaning up containers...'
-                sh 'docker compose down'
-                sh 'docker logout'
-            }
+            echo 'Cleaning up containers...'
+            sh 'docker compose down'
+            sh 'docker logout'
         }
     }
 }
