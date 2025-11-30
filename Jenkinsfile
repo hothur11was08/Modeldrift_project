@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        DB_URL = credentials('db-credentials-id')         // Secret text: postgres://credit_user:credit_pass@localhost:5434/credit
+        #DB_URL = credentials('db-credentials-id')         // Secret text: postgres://credit_user:credit_pass@localhost:5434/credit
+        DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"
         DOCKERHUB = credentials('dockerhub-creds-id')     // Username/Password
     }
 
