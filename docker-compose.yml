@@ -45,7 +45,7 @@ services:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=adminpass
     ports:
-      - "5051:80"     # avoid local 5050 conflicts
+      - "5052:80"     # avoid local 5050 conflicts
     depends_on:
       - postgres
     restart: unless-stopped
