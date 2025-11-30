@@ -8,7 +8,7 @@ services:
       - ./models/saved_model:/models/credit_model
     command: --model_name=credit_model --model_base_path=/models/credit_model
     restart: unless-stopped
-    # ❌ remove container_name to avoid conflicts
+    # ❌ no container_name → avoids Jenkins conflicts
 
   api:
     build:
@@ -27,7 +27,7 @@ services:
       - tfserving
       - postgres
     restart: unless-stopped
-    container_name: credit_project_api   # ✅ keep stable name for Jenkins Drift Monitoring
+    # ❌ remove container_name to avoid Jenkins conflict
 
   postgres:
     image: postgres:15
@@ -40,7 +40,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
-    # ❌ remove container_name
+    # ❌ no container_name → avoids Jenkins conflicts
 
   pgadmin:
     image: dpage/pgadmin4:8.10
@@ -52,7 +52,7 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
-    # ❌ remove container_name
+    # ❌ no container_name → avoids Jenkins conflicts
 
 volumes:
   pgdata:
