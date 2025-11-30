@@ -2,8 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"   // Postgres inside Docker network
-        DOCKERHUB = credentials('dockerhub-creds-id')                          // DockerHub credentials
+        DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"
     }
 
     stages {
@@ -17,9 +16,11 @@ pipeline {
         stage('Docker login') {
             steps {
                 echo 'Logging into DockerHub...'
-                sh '''
-                  echo "$DOCKERHUB_PSW" | docker login -u "$DOCKERHUB_USR" --password-stdin
-                '''
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds-id',
+                                                 usernameVariable: 'DOCKER_USER',
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                }
             }
         }
 
@@ -35,7 +36,6 @@ pipeline {
                 echo 'Deploying stack...'
                 sh """
                   docker compose down || true
-                  export DB_URL='$DB_URL'
                   docker compose up -d
                 """
             }
@@ -48,7 +48,7 @@ pipeline {
                   set -e
                   echo "Waiting for API to be ready..."
                   for i in $(seq 1 30); do
-                    code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health || echo 000)
+                    code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8010/health || echo 000)
                     if [ "$code" = "200" ]; then
                       echo "Health check: 200"
                       break
@@ -60,7 +60,7 @@ pipeline {
                   curl -s -o /dev/null -w "Predict check: %{http_code}\\n" \
                     -H "Content-Type: application/json" \
                     -d '{"purpose":"car","housing":"own","job":"skilled","age":35,"credit_amount":5000,"duration":24}' \
-                    http://localhost:8001/v1/predict
+                    http://localhost:8010/v1/predict
                 '''
             }
         }
@@ -77,9 +77,11 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up containers...'
-            sh 'docker compose down'
-            sh 'docker logout'
+            node {
+                echo 'Cleaning up containers...'
+                sh 'docker compose down'
+                sh 'docker logout'
+            }
         }
     }
 }
