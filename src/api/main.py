@@ -11,12 +11,20 @@ def create_app() -> FastAPI:
     def startup():
         log.info(f"Starting app env={settings.env}")
 
+    # --- Core health endpoint for smoke tests ---
+    @app.get("/health", tags=["health"])
+    def health():
+        return {"status": "ok"}
+
+    # --- Include routers ---
     from src.routes.health import router as health_router
     from src.routes.predict import router as predict_router
     from src.routes.monitor import router as monitor_router
+
     app.include_router(health_router, prefix="/health", tags=["health"])
     app.include_router(predict_router, prefix="/v1", tags=["predict"])
     app.include_router(monitor_router, prefix="/v1/monitor", tags=["monitor"])
+
     return app
 
 app = create_app()
