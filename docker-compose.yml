@@ -2,7 +2,6 @@ services:
   tfserving:
     image: tensorflow/serving:2.14.0
     platform: linux/amd64
-    # ❌ removed host port mapping to avoid conflicts
     volumes:
       - ./models/saved_model:/models/credit_model
     command: --model_name=credit_model --model_base_path=/models/credit_model
@@ -13,7 +12,7 @@ services:
       context: .
       dockerfile: infra/api/Dockerfile
     ports:
-      - "8001:8000"   # host:container, API exposed for smoke tests
+      - "8001:8000"
     environment:
       - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
       - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit
@@ -32,7 +31,6 @@ services:
       - POSTGRES_DB=credit
       - POSTGRES_USER=credit_user
       - POSTGRES_PASSWORD=credit_pass
-    # ❌ removed host port mapping, Jenkins uses service name internally
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -43,7 +41,7 @@ services:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=adminpass
     ports:
-      - "5052:80"     # host:container, pgAdmin exposed for manual DB inspection
+      - "5052:80"
     depends_on:
       - postgres
     restart: unless-stopped
