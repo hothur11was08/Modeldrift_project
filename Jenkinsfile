@@ -27,7 +27,7 @@ pipeline {
         stage('Build API Image') {
             steps {
                 echo 'Building Docker image for API...'
-                sh 'docker compose build api'
+                sh 'docker-compose build api'
             }
         }
 
@@ -35,8 +35,8 @@ pipeline {
             steps {
                 echo 'Deploying stack...'
                 sh """
-                  docker compose down || true
-                  docker compose up -d
+                  docker-compose down || true
+                  docker-compose up -d
                 """
             }
         }
@@ -69,7 +69,7 @@ pipeline {
             steps {
                 echo 'Running drift monitoring inside API container...'
                 sh """
-                  docker compose exec api bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
+                  docker-compose exec api bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
                 """
             }
         }
@@ -78,7 +78,7 @@ pipeline {
     post {
         always {
             echo 'Cleaning up containers...'
-            sh 'docker compose down'
+            sh 'docker-compose down'
             sh 'docker logout'
         }
     }
