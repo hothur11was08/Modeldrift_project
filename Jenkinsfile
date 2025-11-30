@@ -48,7 +48,7 @@ pipeline {
                   set -e
                   echo "Waiting for API to be ready..."
                   for i in $(seq 1 30); do
-                    code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8010/health || echo 000)
+                    code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health || echo 000)
                     if [ "$code" = "200" ]; then
                       echo "Health check: 200"
                       break
@@ -60,7 +60,7 @@ pipeline {
                   curl -s -o /dev/null -w "Predict check: %{http_code}\\n" \
                     -H "Content-Type: application/json" \
                     -d '{"purpose":"car","housing":"own","job":"skilled","age":35,"credit_amount":5000,"duration":24}' \
-                    http://localhost:8010/v1/predict
+                    http://localhost:8001/v1/predict
                 '''
             }
         }
@@ -69,7 +69,7 @@ pipeline {
             steps {
                 echo 'Running drift monitoring inside API container...'
                 sh """
-                  docker exec credit_project_pipeline-api-1 bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
+                  docker exec credit_project-api-1 bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
                 """
             }
         }
