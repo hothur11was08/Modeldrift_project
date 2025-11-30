@@ -13,8 +13,7 @@ services:
     build:
       context: .
       dockerfile: infra/api/Dockerfile
-  #  ports:
-  #    - "8010:8000"
+    # No host port mapping to avoid conflicts; Jenkins can reach it via service name
     environment:
       - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
       - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit
@@ -46,23 +45,6 @@ services:
       - postgres
     restart: unless-stopped
 
-  jenkins:
-    build:
-      context: .
-      dockerfile: infra/jenkins/Dockerfile
-    user: root
-    ports:
-      - "8080:8080"
-      - "50000:50000"
-    volumes:
-      - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: unless-stopped
-    depends_on:
-      - api
-      - postgres
-
 volumes:
   pgdata:
-  jenkins_home:
 
