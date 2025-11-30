@@ -3,20 +3,20 @@ pipeline {
 
     environment {
         DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"   // Postgres inside Docker network
-        DOCKERHUB = credentials('dockerhub-creds-id')                          // Username/Password
+        DOCKERHUB = credentials('dockerhub-creds-id')                          // DockerHub credentials
     }
 
     stages {
         stage('Checkout') {
             steps {
-                echo '📥 Pulling latest code...'
+                echo 'Pulling latest code...'
                 checkout scm
             }
         }
 
         stage('Docker login') {
             steps {
-                echo '🔑 Logging into DockerHub...'
+                echo 'Logging into DockerHub...'
                 sh '''
                   echo "$DOCKERHUB_PSW" | docker login -u "$DOCKERHUB_USR" --password-stdin
                 '''
@@ -25,14 +25,14 @@ pipeline {
 
         stage('Build API Image') {
             steps {
-                echo '🔨 Building Docker image for API...'
+                echo 'Building Docker image for API...'
                 sh 'docker compose build api'
             }
         }
 
         stage('Deploy Stack') {
             steps {
-                echo '🚀 Deploying stack...'
+                echo 'Deploying stack...'
                 sh """
                   docker compose down || true
                   export DB_URL='$DB_URL'
@@ -43,7 +43,7 @@ pipeline {
 
         stage('Smoke Test') {
             steps {
-                echo '🧪 Running smoke tests...'
+                echo 'Running smoke tests...'
                 sh '''
                   set -e
                   echo "Waiting for API to be ready..."
@@ -67,7 +67,7 @@ pipeline {
 
         stage('Drift Monitoring') {
             steps {
-                echo '📊 Running drift monitoring inside API container...'
+                echo 'Running drift monitoring inside API container...'
                 sh """
                   docker exec credit_project_pipeline-api-1 bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
                 """
@@ -77,7 +77,7 @@ pipeline {
 
     post {
         always {
-            echo '🧹 Cleaning up containers...'
+            echo 'Cleaning up containers...'
             sh 'docker compose down'
             sh 'docker logout'
         }
