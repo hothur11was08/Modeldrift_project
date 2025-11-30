@@ -17,7 +17,7 @@ services:
       - "8000:8000"
     environment:
       - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
-      - DB_URL=${DB_URL}        # Injected by Jenkins
+      - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit        # Injected by Jenkins
       - ENV=prod
     volumes:
       - ./artifacts:/app/artifacts
