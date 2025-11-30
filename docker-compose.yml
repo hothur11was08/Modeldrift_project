@@ -3,7 +3,7 @@ services:
     image: tensorflow/serving:2.14.0
     platform: linux/amd64
     ports:
-      - "8502:8501"   # host:container
+      - "8503:8501"   # host:container
     volumes:
       - ./models/saved_model:/models/credit_model
     command: --model_name=credit_model --model_base_path=/models/credit_model
