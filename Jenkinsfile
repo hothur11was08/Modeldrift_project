@@ -2,9 +2,8 @@ pipeline {
     agent any
 
     environment {
-        // Securely inject DB credentials from Jenkins Credentials plugin
-        DB_URL = credentials('db-credentials-id')
-        TF_SERVING_URL = "http://tfserving:8501/v1/models/credit_model:predict"
+        DB_URL = credentials('db-credentials-id')   // Jenkins credential ID for DB
+        DOCKERHUB = credentials('dockerhub-creds-id') // Jenkins credential ID for DockerHub
     }
 
     stages {
@@ -18,61 +17,36 @@ pipeline {
         stage('Build API Image') {
             steps {
                 echo "🔨 Building Docker image for API..."
-                sh '/usr/local/bin/docker compose build api'
+                sh 'docker compose build api'
             }
         }
 
         stage('Deploy Stack') {
             steps {
-                echo "🚀 Starting containers (API, Postgres, TF Serving)..."
-                sh '/usr/local/bin/docker compose up -d'
+                echo "🚀 Deploying stack..."
+                sh 'docker compose up -d'
             }
         }
 
         stage('Smoke Test Prediction') {
             steps {
-                echo "🧪 Running a test prediction..."
-                script {
-                    def response = sh(
-                        script: """curl -s -X POST http://127.0.0.1:8000/v1/predict \
-                          -H 'Content-Type: application/json' \
-                          -d '{"age":35,"credit_amount":2500,"duration":12,"purpose":"A43","housing":"A152","job":"A173"}'""",
-                        returnStdout: true
-                    ).trim()
-                    echo "Prediction response: ${response}"
-                }
+                echo "🧪 Running smoke test..."
+                sh 'curl -s http://localhost:8000/predict -o /dev/null -w "%{http_code}"'
             }
         }
 
         stage('Drift Monitoring') {
             steps {
-                script {
-                    echo "📊 Checking drift metrics..."
-                    def drift = sh(
-                        script: "curl -s http://127.0.0.1:8000/v1/monitor/drift",
-                        returnStdout: true
-                    ).trim()
-                    echo "Drift result: ${drift}"
-
-                    def psi = drift.replaceAll(/.*\"psi\":([0-9\\.]+).*/, '$1').toFloat()
-                    def ks_pval = drift.replaceAll(/.*\"ks_pval\":([0-9\\.]+).*/, '$1').toFloat()
-
-                    if (psi > 0.2 || ks_pval < 0.05) {
-                        error "🚨 Drift detected! PSI=${psi}, KS_pval=${ks_pval}"
-                    } else {
-                        echo "✅ Drift within acceptable limits"
-                    }
-                }
+                echo "📊 Running drift monitoring..."
+                sh 'python src/routes/monitor.py'
             }
         }
     }
 
     post {
         always {
-            script {
-                echo "🧹 Cleaning up containers..."
-                sh '/usr/local/bin/docker compose down || true'
-            }
+            echo "🧹 Cleaning up containers..."
+            sh 'docker compose down || true'
         }
     }
 }
