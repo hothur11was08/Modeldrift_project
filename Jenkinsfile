@@ -69,7 +69,7 @@ pipeline {
             steps {
                 echo 'Running drift monitoring inside API container...'
                 sh """
-                  docker exec credit_project-api-1 bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
+                  docker compose exec api bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
                 """
             }
         }
