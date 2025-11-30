@@ -11,6 +11,8 @@ services:
     build:
       context: .
       dockerfile: infra/api/Dockerfile
+    ports:
+      - "8001:8000"   # expose API on localhost:8001 for Jenkins smoke tests
     environment:
       - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
       - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit
@@ -41,6 +43,8 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
+    # remove ports mapping to avoid conflicts in Jenkins
+    # add "ports: - '5052:80'" if you need pgAdmin exposed locally
 
 volumes:
   pgdata:
