@@ -2,9 +2,8 @@ pipeline {
     agent any
 
     environment {
-        #DB_URL = credentials('db-credentials-id')         // Secret text: postgres://credit_user:credit_pass@localhost:5434/credit
-        DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"
-        DOCKERHUB = credentials('dockerhub-creds-id')     // Username/Password
+        DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"   // Postgres inside Docker network
+        DOCKERHUB = credentials('dockerhub-creds-id')                          // Username/Password
     }
 
     stages {
@@ -70,7 +69,7 @@ pipeline {
             steps {
                 echo '📊 Running drift monitoring inside API container...'
                 sh """
-                  docker exec credit_project_api bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
+                  docker exec credit_project_pipeline-api-1 bash -lc 'DB_URL="$DB_URL" python src/routes/monitor.py' || true
                 """
             }
         }
