@@ -1,9 +1,11 @@
+version: "3.9"
+
 services:
   tfserving:
     image: tensorflow/serving:2.14.0
     platform: linux/amd64
     ports:
-      - "8503:8501"   # host:container
+      - "8503:8501"   # host:container, remapped to avoid conflict
     volumes:
       - ./models/saved_model:/models/credit_model
     command: --model_name=credit_model --model_base_path=/models/credit_model
@@ -14,10 +16,10 @@ services:
       context: .
       dockerfile: infra/api/Dockerfile
     ports:
-      - "8000:8000"
+      - "8001:8000"   # remapped to avoid host port 8000 conflict
     environment:
       - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
-      - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit        # Injected by Jenkins
+      - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit
       - ENV=prod
     volumes:
       - ./artifacts:/app/artifacts
@@ -34,7 +36,7 @@ services:
       - POSTGRES_USER=credit_user
       - POSTGRES_PASSWORD=credit_pass
     ports:
-      - "5434:5432"   # avoid local 5432 conflicts
+      - "5434:5432"   # remapped to avoid host port 5432 conflict
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -45,7 +47,7 @@ services:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=adminpass
     ports:
-      - "5052:80"     # avoid local 5050 conflicts
+      - "5052:80"     # remapped to avoid host port 5050/5051 conflict
     depends_on:
       - postgres
     restart: unless-stopped
