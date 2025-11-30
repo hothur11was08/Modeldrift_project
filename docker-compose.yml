@@ -1,22 +1,21 @@
-version: "3.9"
-
 services:
   tfserving:
     image: tensorflow/serving:2.14.0
     platform: linux/amd64
     ports:
-      - "8503:8501"   # host:container, remapped to avoid conflict
+      - "8502:8501"   # host:container, aligned with actual binding
     volumes:
       - ./models/saved_model:/models/credit_model
     command: --model_name=credit_model --model_base_path=/models/credit_model
     restart: unless-stopped
+    container_name: credit_project_tfserving
 
   api:
     build:
       context: .
       dockerfile: infra/api/Dockerfile
     ports:
-      - "8001:8000"   # remapped to avoid host port 8000 conflict
+      - "8001:8000"   # host:container, avoid host port 8000 conflict
     environment:
       - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
       - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit
@@ -28,6 +27,7 @@ services:
       - tfserving
       - postgres
     restart: unless-stopped
+    container_name: credit_project_api   # ✅ stable name for Jenkins Drift Monitoring
 
   postgres:
     image: postgres:15
@@ -36,10 +36,11 @@ services:
       - POSTGRES_USER=credit_user
       - POSTGRES_PASSWORD=credit_pass
     ports:
-      - "5434:5432"   # remapped to avoid host port 5432 conflict
+      - "5434:5432"   # host:container, avoid host port 5432 conflict
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    container_name: credit_project_postgres
 
   pgadmin:
     image: dpage/pgadmin4:8.10
@@ -47,10 +48,11 @@ services:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=adminpass
     ports:
-      - "5052:80"     # remapped to avoid host port 5050/5051 conflict
+      - "5052:80"     # host:container, avoid host port 5050/5051 conflict
     depends_on:
       - postgres
     restart: unless-stopped
+    container_name: credit_project_pgadmin
 
 volumes:
   pgdata:
