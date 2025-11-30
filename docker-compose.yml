@@ -2,7 +2,6 @@ services:
   tfserving:
     image: tensorflow/serving:2.14.0
     platform: linux/amd64
-    container_name: credit_project_tfserving
     ports:
       - "8502:8501"   # host:container
     volumes:
@@ -14,11 +13,10 @@ services:
     build:
       context: .
       dockerfile: infra/api/Dockerfile
-    container_name: credit_project_api
     ports:
       - "8000:8000"
     environment:
-      - TF_SERVING_URL=http://credit_project_tfserving:8501/v1/models/credit_model:predict
+      - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
       - DB_URL=${DB_URL}        # Injected by Jenkins
       - ENV=prod
     volumes:
@@ -31,7 +29,6 @@ services:
 
   postgres:
     image: postgres:15
-    container_name: credit_project_postgres
     environment:
       - POSTGRES_DB=credit
       - POSTGRES_USER=credit_user
@@ -44,7 +41,6 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:8.10
-    container_name: credit_project_pgadmin
     environment:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=adminpass
