@@ -15,6 +15,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy source code from repo root
 COPY ./src /app/src
 
+# Ensure Python can import src.*
+ENV PYTHONPATH=/app
+
 EXPOSE 8000
 
 # Run FastAPI app
