@@ -69,8 +69,10 @@ pipeline {
             steps {
                 echo 'Running drift monitoring to compare live predictions against training baseline...'
                 sh '''
-                  docker-compose run --rm api bash -lc "DB_URL=\\"$DB_URL\\" python src/routes/monitor.py" > drift_report.txt || true
+                  docker-compose run --rm api bash -lc "DB_URL=\\"$DB_URL\\" python src/routes/monitor.py" > drift_report.txt
                 '''
+                echo '=== Drift Monitoring Output ==='
+                sh 'cat drift_report.txt'
                 archiveArtifacts artifacts: 'drift_report.txt', fingerprint: true
             }
         }
