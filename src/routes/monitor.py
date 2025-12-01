@@ -4,12 +4,17 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select, text, create_engine
-from src.lib.db import SessionLocal
+from sqlalchemy.orm import sessionmaker
+from src.config.settings import settings   # <-- use your existing settings
 from src.models.prediction_log import PredictionLog
 from scipy.stats import ks_2samp
 from datetime import datetime
 
 router = APIRouter()
+
+# Build engine + SessionLocal from settings.db_url
+engine = create_engine(settings.db_url)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def compute_drift():
     db = SessionLocal()
