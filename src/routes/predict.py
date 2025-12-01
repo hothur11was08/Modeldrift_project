@@ -3,7 +3,8 @@ import requests
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from src.lib.db import SessionLocal
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from src.models.prediction_log import PredictionLog
 from src.config.settings import settings
 
@@ -23,6 +24,10 @@ class PredictRequest(BaseModel):
     age: int
     credit_amount: float
     duration: int
+
+# ✅ Build DB session factory from settings
+engine = create_engine(settings.db_url)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 @router.post("/predict")
 def predict(request: PredictRequest):
@@ -63,9 +68,9 @@ def predict(request: PredictRequest):
         return {"prediction": prediction, "probability": prob}
 
     except HTTPException as he:
-        # Pass through clean HTTP errors
+        # Bubble up FastAPI HTTP errors
         raise he
     except Exception as e:
-        # Brutal catch‑all: return 502 instead of crashing with 500
-        raise HTTPException(status_code=502, detail=f"Prediction failed: {e}")
+        # Catch-all for unexpected errors
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
 
