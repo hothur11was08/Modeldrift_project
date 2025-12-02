@@ -4,8 +4,10 @@ services:
   tfserving:
     image: tensorflow/serving:2.14.0
     platform: linux/amd64
+    ports:
+      - "8501:8501"
     volumes:
-      - ./models/saved_model:/models/credit_model
+      - ./models/credit_model:/models/credit_model
     command: --model_name=credit_model --model_base_path=/models/credit_model
     restart: unless-stopped
 
@@ -13,17 +15,19 @@ services:
     build:
       context: .
       dockerfile: infra/api/Dockerfile
-    # No host port mapping to avoid conflicts; Jenkins can reach it via service name
     environment:
       - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
       - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit
       - ENV=prod
+      - PREPROCESS_PATH=/app/artifacts/preprocess.pkl
     volumes:
       - ./artifacts:/app/artifacts
       - ./models:/app/models
     depends_on:
       - tfserving
       - postgres
+    ports:
+      - "8000:8000"   # host 8000 → container 8000, matches uvicorn CMD
     restart: unless-stopped
 
   postgres:
@@ -34,6 +38,8 @@ services:
       - POSTGRES_PASSWORD=credit_pass
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     restart: unless-stopped
 
   pgadmin:
@@ -43,8 +49,22 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=adminpass
     depends_on:
       - postgres
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 volumes:
   pgdata:
+  jenkins_home:
 
