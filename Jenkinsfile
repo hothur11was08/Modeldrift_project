@@ -1,91 +1,116 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"
+  environment {
+    COMPOSE_FILE = 'docker-compose.yml'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git branch: 'main', url: 'https://github.com/hothur11was08/Modeldrift_project.git', credentialsId: 'Gittoken'
+      }
     }
 
-    stages {
-        stage('Pull latest code from GitHub repository') {
-            steps {
-                echo 'Checking out the most recent commit from GitHub...'
-                checkout scm
-            }
+    stage('Authenticate DockerHub') {
+      steps {
+        echo 'Logging into DockerHub using stored Jenkins credentials...'
+        withCredentials([usernamePassword(credentialsId: 'Docker_id', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
         }
-
-        stage('Authenticate Jenkins to DockerHub for image build/push') {
-            steps {
-                echo 'Logging into DockerHub using stored Jenkins credentials...'
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
-                                                 usernameVariable: 'DOCKER_USER',
-                                                 passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
-                }
-            }
-        }
-
-        stage('Build FastAPI container with dependencies and source code') {
-            steps {
-                echo 'Building Docker image for the FastAPI service...'
-                sh 'docker-compose build api'
-            }
-        }
-
-        stage('Start Postgres, TF Serving, API, and pgAdmin via docker-compose') {
-            steps {
-                echo 'Deploying the full stack (database, model server, API, pgAdmin)...'
-                sh """
-                  docker-compose down || true
-                  docker-compose up -d
-                """
-            }
-        }
-
-        stage('Run health check and prediction test against API') {
-            steps {
-                echo 'Running smoke tests to validate API readiness and prediction endpoint...'
-                sh '''
-                  set -e
-                  echo "Waiting for API to be ready..."
-                  for i in $(seq 1 30); do
-                    code=$(curl -s -o /dev/null -w "%{http_code}" http://api:8000/health || echo 000)
-                    if [ "$code" = "200" ]; then
-                      echo "Health check passed: 200 OK"
-                      break
-                    fi
-                    sleep 2
-                  done
-                '''
-                sh '''
-                  curl -s -o /dev/null -w "Prediction endpoint check: %{http_code}\\n" \
-                    -H "Content-Type: application/json" \
-                    -d '{"purpose":"car","housing":"own","job":"skilled","age":35,"credit_amount":5000,"duration":24}' \
-                    http://api:8000/v1/predict
-                '''
-            }
-        }
-
-        stage('Execute drift detection script on prediction logs in Postgres') {
-            steps {
-                echo 'Running drift monitoring to compare live predictions against training baseline...'
-                sh '''
-                  docker-compose run --rm api bash -lc "DB_URL=\\"$DB_URL\\" python src/routes/monitor.py" > drift_report.txt
-                '''
-                echo '=== Drift Monitoring Output ==='
-                sh 'cat drift_report.txt'
-                archiveArtifacts artifacts: 'drift_report.txt', fingerprint: true
-            }
-        }
-
-        stage('Clean up containers and logout from DockerHub') {
-            steps {
-                echo 'Tearing down containers and logging out of DockerHub...'
-                sh '''
-                  docker-compose down
-                  docker logout
-                '''
-            }
-        }
+      }
     }
+
+    stage('Setup Python env') {
+      steps {
+        sh '''
+        python3 -m venv .venv
+        . .venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        '''
+      }
+    }
+
+    stage('Train model') {
+      steps {
+        sh '. .venv/bin/activate && python scripts/train.py'
+      }
+    }
+
+    stage('Build FastAPI image') {
+      steps {
+        sh 'docker-compose build api'
+      }
+    }
+
+    stage('Start services with docker-compose') {
+      steps {
+        sh 'docker-compose up -d'
+      }
+    }
+
+    stage('Init Postgres schema') {
+      steps {
+        sh '''
+        echo "Waiting for Postgres to be ready..."
+        for i in $(seq 1 30); do
+          cid=$(docker ps -q -f name=credit_project-postgres-1)
+          if [ -n "$cid" ] && docker exec $cid pg_isready -U credit_user -d credit >/dev/null 2>&1; then
+            echo "Postgres ready."
+            break
+          fi
+          sleep 2
+        done
+        docker exec -i $(docker ps -q -f name=credit_project-postgres-1) psql -U credit_user -d credit < scripts/init_db.sql
+        '''
+      }
+    }
+
+    stage('Smoke tests') {
+      steps {
+        sh '''
+        set -e
+        echo "Checking API health..."
+        for i in $(seq 1 30); do
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health)
+          if [ "$code" = "200" ]; then
+            echo "API health OK"
+            break
+          fi
+          sleep 2
+        done
+        . .venv/bin/activate && python scripts/smoke_tests.py
+        '''
+      }
+    }
+
+    stage('Drift monitor') {
+      steps {
+        sh '. .venv/bin/activate && python scripts/drift_monitor.py'
+      }
+    }
+
+    stage('Bias monitor') {
+      steps {
+        sh '. .venv/bin/activate && python scripts/bias_monitor.py'
+      }
+    }
+
+    stage('Archive artifacts') {
+      steps {
+        sh 'mkdir -p artifacts/logs artifacts/reports'
+        sh 'docker ps > artifacts/logs/containers.txt'
+        archiveArtifacts artifacts: 'artifacts/**, models/**', fingerprint: true
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker-compose down --remove-orphans || true'
+      sh 'docker logout || true'
+    }
+  }
 }
 
