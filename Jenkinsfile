@@ -9,7 +9,6 @@ pipeline {
     stage('Checkout') {
       steps {
         echo '📥 Pulling latest code...'
-        // Repo is public, so no credentialsId needed
         git branch: 'main', url: 'https://github.com/hothur11was08/Modeldrift_project.git'
       }
     }
@@ -38,7 +37,6 @@ pipeline {
 
     stage('Train model') {
       steps {
-        // FIXED: point to scripts/train.py
         sh '. .venv/bin/activate && python scripts/train.py'
       }
     }
@@ -66,7 +64,7 @@ pipeline {
         sh '''
         set -e
         for i in $(seq 1 30); do
-          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health)
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health)
           if [ "$code" = "200" ]; then
             echo "API health OK"
             break
