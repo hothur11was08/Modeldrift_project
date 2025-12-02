@@ -63,12 +63,14 @@ pipeline {
         echo '🩺 Running smoke tests...'
         sh '''
         set -e
-        for i in $(seq 1 30); do
-          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health)
+        # Wait up to 2 minutes for API
+        for i in $(seq 1 60); do
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
           if [ "$code" = "200" ]; then
             echo "API health OK"
             break
           fi
+          echo "Waiting for API... attempt $i, got code=$code"
           sleep 2
         done
         . .venv/bin/activate && python scripts/smoke_tests.py
