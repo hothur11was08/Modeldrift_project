@@ -14,3 +14,4 @@ plt.legend()
 
 # Save into drift_reports folder
 plt.savefig("drift_reports/drift.png", dpi=150, bbox_inches="tight")
+
