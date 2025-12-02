@@ -2,21 +2,23 @@ pipeline {
   agent any
 
   environment {
-    COMPOSE_FILE = 'docker-compose.yml'
+    DB_URL = "postgresql://credit_user:credit_pass@postgres:5432/credit"
   }
 
   stages {
     stage('Checkout') {
       steps {
-        git branch: 'main', url: 'https://github.com/hothur11was08/Modeldrift_project.git', credentialsId: 'Gittoken'
+        echo '📥 Pulling latest code...'
+        // Repo is public, so no credentialsId needed
+        git branch: 'main', url: 'https://github.com/hothur11was08/Modeldrift_project.git'
       }
     }
 
-    stage('Authenticate DockerHub') {
+    stage('Docker login') {
       steps {
-        echo 'Logging into DockerHub using stored Jenkins credentials...'
+        echo '🔑 Logging into DockerHub...'
         withCredentials([usernamePassword(credentialsId: 'Docker_id', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+          sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
         }
       }
     }
@@ -24,9 +26,11 @@ pipeline {
     stage('Setup Python env') {
       steps {
         sh '''
+        apt-get update && apt-get install -y python3-venv python3-pip || true
         python3 -m venv .venv
         . .venv/bin/activate
-        pip install --upgrade pip
+        python -m ensurepip --upgrade
+        pip install --upgrade pip setuptools wheel
         pip install -r requirements.txt
         '''
       }
@@ -34,44 +38,33 @@ pipeline {
 
     stage('Train model') {
       steps {
+        // FIXED: point to scripts/train.py
         sh '. .venv/bin/activate && python scripts/train.py'
       }
     }
 
-    stage('Build FastAPI image') {
+    stage('Build API Image') {
       steps {
+        echo '🔨 Building Docker image for API...'
         sh 'docker-compose build api'
       }
     }
 
-    stage('Start services with docker-compose') {
+    stage('Deploy Stack') {
       steps {
-        sh 'docker-compose up -d'
-      }
-    }
-
-    stage('Init Postgres schema') {
-      steps {
+        echo '🚀 Deploying stack...'
         sh '''
-        echo "Waiting for Postgres to be ready..."
-        for i in $(seq 1 30); do
-          cid=$(docker ps -q -f name=credit_project-postgres-1)
-          if [ -n "$cid" ] && docker exec $cid pg_isready -U credit_user -d credit >/dev/null 2>&1; then
-            echo "Postgres ready."
-            break
-          fi
-          sleep 2
-        done
-        docker exec -i $(docker ps -q -f name=credit_project-postgres-1) psql -U credit_user -d credit < scripts/init_db.sql
+        docker-compose down || true
+        docker-compose up -d
         '''
       }
     }
 
-    stage('Smoke tests') {
+    stage('Smoke Test') {
       steps {
+        echo '🩺 Running smoke tests...'
         sh '''
         set -e
-        echo "Checking API health..."
         for i in $(seq 1 30); do
           code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health)
           if [ "$code" = "200" ]; then
@@ -99,7 +92,7 @@ pipeline {
 
     stage('Archive artifacts') {
       steps {
-        sh 'mkdir -p artifacts/logs artifacts/reports'
+        sh 'mkdir -p artifacts/logs artifacts/reports models'
         sh 'docker ps > artifacts/logs/containers.txt'
         archiveArtifacts artifacts: 'artifacts/**, models/**', fingerprint: true
       }
