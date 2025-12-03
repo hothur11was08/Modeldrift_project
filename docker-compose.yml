@@ -4,12 +4,12 @@ services:
   tfserving:
     image: tensorflow/serving:2.14.0
     platform: linux/amd64
-    ports:
-      - "8501:8501"
     volumes:
       - ./models/credit_model:/models/credit_model
     command: --model_name=credit_model --model_base_path=/models/credit_model
     restart: unless-stopped
+    # Internal only, no host port binding
+    # Accessible to other services via http://tfserving:8501
 
   api:
     build:
@@ -38,9 +38,9 @@ services:
       - POSTGRES_PASSWORD=credit_pass
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     restart: unless-stopped
+    # Internal only, no host port binding
+    # Accessible to other services via postgres:5432
 
   pgadmin:
     image: dpage/pgadmin4:8.10
@@ -50,7 +50,7 @@ services:
     depends_on:
       - postgres
     ports:
-      - "5050:80"
+      - "5050:80"   # host 5050 → container 80
     restart: unless-stopped
 
 volumes:
