@@ -1,0 +1,23 @@
+# macOS system files
+.DS_Store
+
+# Python virtual environment
+.venv/
+
+# Vim/vi swap files
+*.swp
+*.swo
+*.swn
+*.swm
+
+# Backup compose files
+docker-compose.yml_bkup
+docker-compose.yml_dec01
+
+# Local reports/artifacts not needed in repo
+drift_reports/
+artifacts/german.data
+models/.DS_Store
+infra/.DS_Store
+src/.DS_Store
+
