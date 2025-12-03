@@ -54,6 +54,8 @@ pipeline {
         sh '''
         docker-compose down || true
         docker-compose up -d
+        # Attach Jenkins container to the compose network so it can reach services
+        docker network connect credit_project_pipeline_default $(cat /etc/hostname) || true
         '''
       }
     }
@@ -65,15 +67,15 @@ pipeline {
         set -e
         # Wait up to 2 minutes for API
         for i in $(seq 1 60); do
-          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://api:8000/health || true)
           if [ "$code" = "200" ]; then
             echo "API health OK"
-            break
+            exit 0
           fi
           echo "Waiting for API... attempt $i, got code=$code"
           sleep 2
         done
-        exit        
+        exit 1
         '''
       }
     }
