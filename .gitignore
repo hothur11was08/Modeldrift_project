@@ -20,4 +20,6 @@ artifacts/german.data
 models/.DS_Store
 infra/.DS_Store
 src/.DS_Store
+Jenkinsfile_Dec01
+infra/api/Dockerfile_Dec01
 
