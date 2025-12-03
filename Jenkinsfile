@@ -1,18 +1,14 @@
 pipeline {
   agent any
-
   environment {
     COMPOSE_FILE = 'docker-compose.yml'
   }
-
   stages {
     stage('Checkout') {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
-    stage('Install Docker CLI + Compose') {
+    stage('Install Docker CLI + Compose + Python') {
       steps {
         sh '''
           set -eux
@@ -57,12 +53,14 @@ pipeline {
       }
     }
 
-    stage('Smoke tests') {
+    stage('Smoke tests (inside api container)') {
       steps {
         sh '''
           set -eux
-          curl -sSf http://localhost:8000/health || curl -sSf http://api:8000/health
-          curl -sSf http://localhost:8501/v1/models/your_model || true
+          # Run curl inside the api service container so networking is correct
+          docker-compose -f ${COMPOSE_FILE} exec -T api curl -sSf http://localhost:8000/health
+          # TF Serving reachability
+          docker-compose -f ${COMPOSE_FILE} exec -T api curl -sSf http://tfserving:8501/v1/models/${MODEL_NAME:-your_model} || true
         '''
       }
     }
@@ -103,11 +101,8 @@ pipeline {
       }
     }
   }
-
   post {
-    always {
-      echo 'Pipeline finished.'
-    }
+    always { echo 'Pipeline finished.' }
   }
 }
 
