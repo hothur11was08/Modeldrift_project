@@ -9,7 +9,7 @@ pipeline {
     stage('Checkout') {
       steps {
         echo '📥 Pulling latest code...'
-        git branch: 'main', url: 'https://github.com/hothur11was08/Modeldrift_project.git'
+        git url: 'https://github.com/hothur11was08/Modeldrift_project.git', branch: 'main'
       }
     }
 
@@ -28,7 +28,6 @@ pipeline {
         apt-get update && apt-get install -y python3-venv python3-pip || true
         python3 -m venv .venv
         . .venv/bin/activate
-        python -m ensurepip --upgrade
         pip install --upgrade pip setuptools wheel
         pip install -r requirements.txt
         '''
@@ -54,8 +53,7 @@ pipeline {
         sh '''
         docker-compose down || true
         docker-compose up -d
-        # Attach Jenkins container to the compose network so it can reach services
-        docker network connect credit_project_pipeline_default $(cat /etc/hostname) || true
+        docker network connect credit_project_default $(cat /etc/hostname) || true
         '''
       }
     }
@@ -64,47 +62,38 @@ pipeline {
       steps {
         echo '🩺 Running smoke tests...'
         sh '''
-        set -e
-        # Wait up to 2 minutes for API
-        for i in $(seq 1 60); do
-          code=$(curl -s -o /dev/null -w "%{http_code}" http://api:8000/health || true)
-          if [ "$code" = "200" ]; then
-            echo "API health OK"
-            exit 0
-          fi
-          echo "Waiting for API... attempt $i, got code=$code"
-          sleep 2
-        done
-        exit 1
+        curl -s http://api:8000/health || exit 1
+        curl -s http://tfserving:8501/v1/models/credit_model || exit 1
         '''
       }
     }
 
-    stage('Drift monitor') {
+    stage('Drift Detection') {
       steps {
-        sh '. .venv/bin/activate && python scripts/drift_monitor.py'
+        echo '📊 Running drift detection...'
+        sh '. .venv/bin/activate && python scripts/drift_check.py --db $DB_URL --out drift_reports/drift_report.json'
       }
     }
 
-    stage('Bias monitor') {
+    stage('Accuracy Evaluation') {
       steps {
-        sh '. .venv/bin/activate && python scripts/bias_monitor.py'
+        echo '🎯 Evaluating accuracy...'
+        sh '. .venv/bin/activate && python scripts/accuracy_eval.py --data data/german_credit.csv --model models/credit_model --out drift_reports/accuracy_report.json'
       }
     }
 
-    stage('Archive artifacts') {
+    stage('Bias/Fairness Check') {
       steps {
-        sh 'mkdir -p artifacts/logs artifacts/reports models'
-        sh 'docker ps > artifacts/logs/containers.txt'
-        archiveArtifacts artifacts: 'artifacts/**, models/**', fingerprint: true
+        echo '⚖️ Checking bias/fairness...'
+        sh '. .venv/bin/activate && python scripts/bias_check.py --data data/german_credit.csv --out drift_reports/bias_report.json'
       }
     }
-  }
 
-  post {
-    always {
-      sh 'docker-compose down --remove-orphans || true'
-      sh 'docker logout || true'
+    stage('Archive Reports') {
+      steps {
+        echo '📦 Archiving reports...'
+        archiveArtifacts artifacts: 'drift_reports/*.json', fingerprint: true
+      }
     }
   }
 }
