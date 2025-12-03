@@ -35,7 +35,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://credit_user:credit_pass@postgres:5432/credit_db
+      - DATABASE_URL=postgresql+pg8000://credit_user:credit_pass@postgres:5432/credit_db
       - TFSERVING_URL=http://tfserving:8501
     depends_on:
       - postgres

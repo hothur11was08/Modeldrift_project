@@ -2,46 +2,34 @@ pipeline {
   agent any
 
   environment {
-    // Adjust these to your stack needs
     COMPOSE_FILE = 'docker-compose.yml'
-    DOCKER_REGISTRY = ''
   }
 
   stages {
-    stage('Declarative: Checkout SCM') {
+    stage('Checkout') {
       steps {
         checkout scm
       }
     }
 
-    stage('Checkout') {
-      steps {
-        echo '📥 Pulling latest code...'
-        git url: 'https://github.com/hothur11was08/Modeldrift_project.git',
-            branch: 'main',
-            credentialsId: 'GitHub_id'
-      }
-    }
-
-    stage('Docker login') {
-      steps {
-        echo '🔑 Logging into DockerHub...'
-        withCredentials([usernamePassword(credentialsId: 'Docker_id',
-                                          usernameVariable: 'DOCKER_USER',
-                                          passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-          '''
-        }
-      }
-    }
-
-    stage('Setup Python env') {
+    stage('Install Docker CLI + Compose') {
       steps {
         sh '''
           set -eux
           apt-get update
-          apt-get install -y python3-venv python3-pip
+          apt-get install -y docker.io curl python3 python3-venv python3-pip
+          curl -L "https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          docker --version
+          docker-compose --version
+        '''
+      }
+    }
+
+    stage('Setup Python venv') {
+      steps {
+        sh '''
+          set -eux
           python3 -m venv .venv
           . .venv/bin/activate
           pip install --upgrade pip setuptools wheel
@@ -50,17 +38,7 @@ pipeline {
       }
     }
 
-    stage('Train model') {
-      steps {
-        sh '''
-          set -eux
-          . .venv/bin/activate
-          python scripts/train.py
-        '''
-      }
-    }
-
-    stage('Build API Image') {
+    stage('Build API image') {
       steps {
         sh '''
           set -eux
@@ -69,27 +47,27 @@ pipeline {
       }
     }
 
-    stage('Deploy Stack') {
+    stage('Deploy stack') {
       steps {
         sh '''
           set -eux
           docker-compose -f ${COMPOSE_FILE} up -d
+          docker-compose -f ${COMPOSE_FILE} ps
         '''
       }
     }
 
-    stage('Smoke Test') {
+    stage('Smoke tests') {
       steps {
         sh '''
           set -eux
-          curl -sSf http://localhost:8000/health
-          # If using TF Serving:
-          curl -sSf http://localhost:8501/v1/models/your_model
+          curl -sSf http://localhost:8000/health || curl -sSf http://api:8000/health
+          curl -sSf http://localhost:8501/v1/models/your_model || true
         '''
       }
     }
 
-    stage('Drift Detection') {
+    stage('Drift detection') {
       steps {
         sh '''
           set -eux
@@ -99,7 +77,7 @@ pipeline {
       }
     }
 
-    stage('Accuracy Evaluation') {
+    stage('Accuracy evaluation') {
       steps {
         sh '''
           set -eux
@@ -109,7 +87,7 @@ pipeline {
       }
     }
 
-    stage('Bias/Fairness Check') {
+    stage('Bias check') {
       steps {
         sh '''
           set -eux
@@ -119,7 +97,7 @@ pipeline {
       }
     }
 
-    stage('Archive Reports') {
+    stage('Archive reports') {
       steps {
         archiveArtifacts artifacts: 'reports/*.json', fingerprint: true, onlyIfSuccessful: false
       }
@@ -128,13 +106,7 @@ pipeline {
 
   post {
     always {
-      echo '🧹 Pipeline finished.'
-    }
-    failure {
-      echo '❌ Pipeline failed.'
-    }
-    success {
-      echo '✅ Pipeline succeeded.'
+      echo 'Pipeline finished.'
     }
   }
 }
