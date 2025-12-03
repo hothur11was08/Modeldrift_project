@@ -1,16 +1,16 @@
-FROM jenkins/jenkins:lts-jdk11
+FROM jenkins/jenkins:lts
 
 USER root
 
-# Install Docker CLI
+# Install Python 3.11 and tools
 RUN apt-get update && \
-    apt-get install -y docker.io curl && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y python3.11 python3.11-venv python3.11-dev && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python
 
-# Install Docker Compose v2 manually
-RUN curl -SL https://github.com/docker/compose/releases/download/v2.30.3/docker-compose-linux-$(dpkg --print-architecture) \
-    -o /usr/local/bin/docker-compose && \
-    chmod +x /usr/local/bin/docker-compose
+# Install pip
+RUN apt-get install -y python3-pip && \
+    python3.11 -m pip install --upgrade pip setuptools wheel
 
 USER jenkins
-
+USER jenkins

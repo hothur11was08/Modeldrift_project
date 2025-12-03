@@ -1,8 +1,8 @@
-version: "3.8"
-
-services:
+    services:
   jenkins:
-    image: jenkins/jenkins:lts
+    build:
+      context: .
+      dockerfile: infra/jenkins/Dockerfile
     container_name: credit_project-jenkins
     user: root
     ports:
@@ -11,7 +11,6 @@ services:
     volumes:
       - ./jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
     restart: unless-stopped
+restart: unless-stopped
 
