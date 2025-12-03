@@ -1,58 +1,51 @@
-version: "3.9"
+version: "3.8"
 
 services:
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=credit_user
+      - POSTGRES_PASSWORD=credit_pass
+      - POSTGRES_DB=credit_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - appnet
+
   tfserving:
     image: tensorflow/serving:2.14.0
-    platform: linux/amd64
+    ports:
+      - "8501:8501"
+    environment:
+      - MODEL_NAME=your_model
     volumes:
-      - ./models/credit_model:/models/credit_model
-    command: --model_name=credit_model --model_base_path=/models/credit_model
-    restart: unless-stopped
-    # Internal only, no host port binding
-    # Accessible to other services via http://tfserving:8501
+      - ./models/your_model:/models/your_model
+    command: >
+      --rest_api_port=8501
+      --model_name=${MODEL_NAME}
+      --model_base_path=/models/${MODEL_NAME}
+    networks:
+      - appnet
 
   api:
     build:
       context: .
       dockerfile: infra/api/Dockerfile
+    image: credit_project-api
+    ports:
+      - "8000:8000"
     environment:
-      - TF_SERVING_URL=http://tfserving:8501/v1/models/credit_model:predict
-      - DB_URL=postgresql://credit_user:credit_pass@postgres:5432/credit
-      - ENV=prod
-      - PREPROCESS_PATH=/app/artifacts/preprocess.pkl
-    volumes:
-      - ./artifacts:/app/artifacts
-      - ./models:/app/models
+      - DATABASE_URL=postgresql://credit_user:credit_pass@postgres:5432/credit_db
+      - TFSERVING_URL=http://tfserving:8501
     depends_on:
+      - postgres
       - tfserving
-      - postgres
-    ports:
-      - "8000:8000"   # host 8000 → container 8000, matches uvicorn CMD
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=credit
-      - POSTGRES_USER=credit_user
-      - POSTGRES_PASSWORD=credit_pass
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
-    # Internal only, no host port binding
-    # Accessible to other services via postgres:5432
-
-  pgadmin:
-    image: dpage/pgadmin4:8.10
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@example.com
-      - PGADMIN_DEFAULT_PASSWORD=adminpass
-    depends_on:
-      - postgres
-    ports:
-      - "5050:80"   # host 5050 → container 80
-    restart: unless-stopped
+    networks:
+      - appnet
 
 volumes:
   pgdata:
+
+networks:
+  appnet:
 
